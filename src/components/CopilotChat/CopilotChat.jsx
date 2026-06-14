@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import './CopilotChat.css';
 import cleanCoreData from '../../assets/data/cleanCorePatterns.json';
 
@@ -60,6 +61,103 @@ export default function CopilotChat({ onNavigate, onSearchFinder, onSearchRepo }
   const [isTyping, setIsTyping] = useState(false);
   const [repoDb, setRepoDb] = useState(null);
   const [dbLoading, setDbLoading] = useState(false);
+
+  // Draggable positioning states
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const elementStart = useRef({ x: 0, y: 0 });
+  const hasDragged = useRef(false);
+
+  // Initialize position in bottom-right corner based on window size
+  useEffect(() => {
+    setPosition({
+      x: window.innerWidth - 84,
+      y: window.innerHeight - 84
+    });
+
+    const handleResize = () => {
+      setPosition(prev => ({
+        x: Math.min(prev.x, window.innerWidth - 84),
+        y: Math.min(prev.y, window.innerHeight - 84)
+      }));
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleMouseDown = (e) => {
+    if (e.button !== 0) return; // Only left-click drags
+    setIsDragging(true);
+    hasDragged.current = false;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    elementStart.current = { x: position.x, y: position.y };
+    e.preventDefault();
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      hasDragged.current = true;
+    }
+
+    const newX = Math.max(10, Math.min(window.innerWidth - 70, elementStart.current.x + dx));
+    const newY = Math.max(10, Math.min(window.innerHeight - 70, elementStart.current.y + dy));
+
+    setPosition({ x: newX, y: newY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    setIsDragging(true);
+    hasDragged.current = false;
+    dragStart.current = { x: touch.clientX, y: touch.clientY };
+    elementStart.current = { x: position.x, y: position.y };
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragStart.current.x;
+    const dy = touch.clientY - dragStart.current.y;
+
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      hasDragged.current = true;
+    }
+
+    const newX = Math.max(10, Math.min(window.innerWidth - 70, elementStart.current.x + dx));
+    const newY = Math.max(10, Math.min(window.innerHeight - 70, elementStart.current.y + dy));
+
+    setPosition({ x: newX, y: newY });
+  };
+
+  // Global event listeners during active drag
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      window.addEventListener('touchmove', handleTouchMove, { passive: false });
+      window.addEventListener('touchend', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  const handleBubbleClick = (e) => {
+    if (hasDragged.current) return; // Ignore toggling if dragging occurred
+    setIsOpen(!isOpen);
+  };
   
   const messagesEndRef = useRef(null);
 
@@ -297,13 +395,45 @@ export default function CopilotChat({ onNavigate, onSearchFinder, onSearchRepo }
     "Tell me about Application Jobs"
   ];
 
-  return (
-    <div className="copilot-widget-container">
+  // Calculate chat panel layout directions depending on bubble screen region
+  const isOnLeftSide = position.x < window.innerWidth / 2;
+  const isOnTopSide = position.y < window.innerHeight / 2;
+
+  const panelStyle = {};
+  if (isOnLeftSide) {
+    panelStyle.left = '0';
+    panelStyle.right = 'auto';
+  } else {
+    panelStyle.right = '0';
+    panelStyle.left = 'auto';
+  }
+
+  if (isOnTopSide) {
+    panelStyle.top = '72px';
+    panelStyle.bottom = 'auto';
+  } else {
+    panelStyle.bottom = '72px';
+    panelStyle.top = 'auto';
+  }
+
+  return createPortal(
+    <div 
+      className="copilot-widget-container"
+      style={{
+        top: `${position.y}px`,
+        left: `${position.x}px`,
+        bottom: 'auto',
+        right: 'auto'
+      }}
+    >
       {/* Floating Action Button */}
       <button 
         className={`copilot-bubble ${isOpen ? 'active' : ''}`}
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleBubbleClick}
+        onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
         aria-label="Toggle Copilot Chat"
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="chat-bubble-icon">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -315,7 +445,10 @@ export default function CopilotChat({ onNavigate, onSearchFinder, onSearchRepo }
       </button>
 
       {/* Chat Panel */}
-      <div className={`copilot-panel glass ${isOpen ? 'open' : ''}`}>
+      <div 
+        className={`copilot-panel glass ${isOpen ? 'open' : ''}`}
+        style={panelStyle}
+      >
         {/* Panel Header */}
         <div className="panel-header flex justify-between align-center">
           <div className="header-meta flex align-center">
@@ -445,6 +578,7 @@ export default function CopilotChat({ onNavigate, onSearchFinder, onSearchRepo }
           </button>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

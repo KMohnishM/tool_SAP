@@ -1,10 +1,9 @@
 /* Floating chat container */
 .copilot-widget-container {
   position: fixed;
-  bottom: 28px;
-  right: 28px;
   z-index: 1000;
   font-family: var(--font-sans);
+  touch-action: none; /* Prevents default page scroll on mobile while dragging */
 }
 
 /* Floating bubble icon */
@@ -73,8 +72,6 @@
 /* Chat Panel Frame */
 .copilot-panel {
   position: absolute;
-  bottom: 72px;
-  right: 0;
   width: 380px;
   height: 540px;
   border-radius: var(--radius-lg);
@@ -99,7 +96,6 @@
 @media (max-width: 440px) {
   .copilot-panel {
     width: calc(100vw - 32px);
-    right: -12px;
     height: 480px;
   }
 }
