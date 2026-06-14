@@ -1,0 +1,61 @@
+:root {
+  /* Theme independent variables */
+  --font-sans: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'Space Mono', 'Fira Code', monospace;
+  
+  --a: #10b981;       /* Level A: Emerald green */
+  --b: #3b82f6;       /* Level B: Sky blue */
+  --c: #f59e0b;       /* Level C: Amber */
+  --d: #ef4444;       /* Level D: Coral Red */
+  --gold: #d9a441;    /* Accent gold */
+  
+  --a-dim: rgba(16, 185, 129, 0.12);
+  --b-dim: rgba(59, 130, 246, 0.12);
+  --c-dim: rgba(245, 158, 11, 0.12);
+  --d-dim: rgba(239, 68, 68, 0.12);
+  --gold-dim: rgba(217, 164, 65, 0.12);
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.15);
+  
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+}
+
+/* Dark Theme (Default) */
+[data-theme="dark"] {
+  --bg: #090d16;
+  --bg-gradient: radial-gradient(1000px 600px at 85% -10%, rgba(59, 130, 246, 0.08), transparent 60%),
+                 radial-gradient(800px 500px at 15% 100%, rgba(16, 185, 129, 0.06), transparent 50%),
+                 #090d16;
+  --panel: #111827;
+  --panel-hover: #1f2937;
+  --panel-active: #374151;
+  --border: #1f2937;
+  --border-focus: #3b82f6;
+  --ink: #f9fafb;
+  --muted: #9ca3af;
+  --faint: #4b5563;
+  --card-glow: rgba(59, 130, 246, 0.05);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg-gradient: radial-gradient(1000px 600px at 85% -10%, rgba(59, 130, 246, 0.05), transparent 60%),
+                 radial-gradient(800px 500px at 15% 100%, rgba(16, 185, 129, 0.04), transparent 50%),
+                 #f8fafc;
+  --panel: #ffffff;
+  --panel-hover: #f1f5f9;
+  --panel-active: #e2e8f0;
+  --border: #e2e8f0;
+  --border-focus: #3b82f6;
+  --ink: #0f172a;
+  --muted: #475569;
+  --faint: #94a3b8;
+  --card-glow: rgba(59, 130, 246, 0.02);
+}
