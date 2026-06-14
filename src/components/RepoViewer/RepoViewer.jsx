@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import RepoAnalytics from './RepoAnalytics';
 import './RepoViewer.css';
 
 export default function RepoViewer({ initialSearchQuery }) {
@@ -11,6 +12,7 @@ export default function RepoViewer({ initialSearchQuery }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [stateFilter, setStateFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [softCompFilter, setSoftCompFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
 
@@ -32,6 +34,7 @@ export default function RepoViewer({ initialSearchQuery }) {
     setSearchQuery(name);
     setStateFilter('all');
     setTypeFilter('all');
+    setSoftCompFilter('all');
     setSubTab('explorer');
   };
 
@@ -59,6 +62,15 @@ export default function RepoViewer({ initialSearchQuery }) {
     return Array.from(types).sort();
   }, [dbData]);
 
+  const uniqueSoftComps = useMemo(() => {
+    if (!dbData) return [];
+    const comps = new Set();
+    dbData.forEach(item => {
+      if (item.softwareComponent) comps.add(item.softwareComponent);
+    });
+    return Array.from(comps).sort();
+  }, [dbData]);
+
   // Clean Core States mappings
   const stateLabels = {
     released: 'Released (Level A)',
@@ -83,12 +95,28 @@ export default function RepoViewer({ initialSearchQuery }) {
       
       // Type filter
       if (typeFilter !== 'all' && item.objectType !== typeFilter) return false;
+
+      // Software Component filter
+      if (softCompFilter !== 'all' && item.softwareComponent !== softCompFilter) return false;
       
-      // Keyword search (compares object name and successors)
+      // Keyword search (compares object name, successors, object type, component, software component, and release state)
       if (searchQuery.trim() !== '') {
         const query = searchQuery.toLowerCase();
         const matchesName = (item.tadirObjName || '').toLowerCase().includes(query);
         const matchesComp = (item.applicationComponent || '').toLowerCase().includes(query);
+        const matchesSoftComp = (item.softwareComponent || '').toLowerCase().includes(query);
+        const matchesType = (item.objectType || '').toLowerCase().includes(query);
+        
+        // Release State matching
+        const stateLower = (item.state || '').toLowerCase();
+        let matchesState = stateLower.includes(query);
+        if (stateLower === 'released') {
+          if ('level a'.includes(query) || 'released'.includes(query)) matchesState = true;
+        } else if (stateLower === 'deprecated') {
+          if ('level b'.includes(query) || 'level c'.includes(query) || 'deprecated'.includes(query) || 'classic api'.includes(query)) matchesState = true;
+        } else if (stateLower === 'nottobereleased') {
+          if ('level d'.includes(query) || 'not to be released'.includes(query) || 'blocked'.includes(query) || 'internal'.includes(query)) matchesState = true;
+        }
         
         let matchesSuccessor = false;
         if (item.successors && item.successors.length > 0) {
@@ -97,12 +125,12 @@ export default function RepoViewer({ initialSearchQuery }) {
           );
         }
         
-        if (!matchesName && !matchesComp && !matchesSuccessor) return false;
+        if (!matchesName && !matchesComp && !matchesSoftComp && !matchesType && !matchesState && !matchesSuccessor) return false;
       }
       
       return true;
     });
-  }, [dbData, searchQuery, stateFilter, typeFilter]);
+  }, [dbData, searchQuery, stateFilter, typeFilter, softCompFilter]);
 
   // Pagination slice
   const paginatedItems = useMemo(() => {
@@ -192,6 +220,7 @@ export default function RepoViewer({ initialSearchQuery }) {
           found: true,
           type: dbMatch.objectType,
           component: dbMatch.applicationComponent,
+          softwareComponent: dbMatch.softwareComponent,
           state: dbMatch.state,
           successors: dbMatch.successors || []
         });
@@ -202,6 +231,9 @@ export default function RepoViewer({ initialSearchQuery }) {
           name: objName,
           found: false,
           state: 'unknown',
+          type: 'CUSTOM',
+          component: '-',
+          softwareComponent: '-',
           successors: []
         });
       }
@@ -300,11 +332,13 @@ export default function RepoViewer({ initialSearchQuery }) {
   // Export report to Excel-compliant CSV file
   const exportToCSV = () => {
     if (!simulationMetrics) return;
-    const headers = ['Object Name', 'Category', 'Release Status', 'Complexity', 'Estimated Effort (Hours)', 'Successors'];
+    const headers = ['Type', 'Object Name', 'Release Status', 'Software Component', 'Application Component', 'Complexity', 'Estimated Effort (Hours)', 'Successors'];
     const rows = simulationMetrics.detailsList.map(item => [
-      item.name,
       item.found ? item.type : 'CUSTOM',
+      item.name,
       getAnalyzerStateLabel(item.simState),
+      item.softwareComponent || '-',
+      item.component || '-',
       item.simState === 'released' ? 'None' : item.simState === 'deprecated' ? 'Medium' : item.simState === 'notToBeReleased' ? 'High' : 'None',
       item.simState === 'released' ? 0 : item.simState === 'deprecated' ? 6 : item.simState === 'notToBeReleased' ? 16 : 0,
       item.successors.map(s => `${s.objectType}:${s.tadirObjName}`).join('; ')
@@ -340,6 +374,15 @@ export default function RepoViewer({ initialSearchQuery }) {
     if (state === 'deprecated') return 'Deprecated / Classic API';
     if (state === 'notToBeReleased') return 'Internal / Blocked';
     return 'Custom / Non-Standard';
+  };
+
+  const isAnyExplorerFilterActive = searchQuery !== '' || stateFilter !== 'all' || typeFilter !== 'all' || softCompFilter !== 'all';
+
+  const resetExplorerFilters = () => {
+    setSearchQuery('');
+    setStateFilter('all');
+    setTypeFilter('all');
+    setSoftCompFilter('all');
   };
 
   return (
@@ -388,6 +431,17 @@ export default function RepoViewer({ initialSearchQuery }) {
           {/* 1. EXPLORER TAB */}
           {subTab === 'explorer' && (
             <div className="explorer-tab-content">
+              {/* Analytics Dashboard */}
+              <RepoAnalytics
+                items={dbData}
+                activeStateFilter={stateFilter}
+                setActiveStateFilter={setStateFilter}
+                activeTypeFilter={typeFilter}
+                setActiveTypeFilter={setTypeFilter}
+                activeSoftCompFilter={softCompFilter}
+                setActiveSoftCompFilter={setSoftCompFilter}
+              />
+
               {/* Explorer Controls */}
               <div className="controls-card glass">
                 <div className="search-row">
@@ -396,7 +450,7 @@ export default function RepoViewer({ initialSearchQuery }) {
                   </svg>
                   <input 
                     type="text" 
-                    placeholder="Search standard object name (e.g. CL_ABAP_CHAR_UTILITIES) or component..."
+                    placeholder="Search object name, type (e.g. CLAS, TABL), component, software component, or release state..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="search-input"
@@ -406,7 +460,7 @@ export default function RepoViewer({ initialSearchQuery }) {
                   )}
                 </div>
 
-                <div className="filters-grid">
+                <div className="filters-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', alignItems: 'end' }}>
                   <div className="filter-select-group">
                     <label>Release State:</label>
                     <select value={stateFilter} onChange={(e) => setStateFilter(e.target.value)}>
@@ -427,9 +481,32 @@ export default function RepoViewer({ initialSearchQuery }) {
                     </select>
                   </div>
 
-                  <div className="database-sync-info flex align-center">
-                    <span className="sync-chip">Database Cache Active</span>
-                    <span className="sync-count">34,675 API entries</span>
+                  <div className="filter-select-group">
+                    <label>Software Component:</label>
+                    <select value={softCompFilter} onChange={(e) => setSoftCompFilter(e.target.value)}>
+                      <option value="all">All Software Components</option>
+                      {uniqueSoftComps.map(sc => (
+                        <option key={sc} value={sc}>{sc}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex align-center justify-between" style={{ gridColumn: '1 / -1', marginTop: '4px', gap: '12px' }}>
+                    <div className="database-sync-info flex align-center">
+                      <span className="sync-chip">Database Cache Active</span>
+                      <span className="sync-count">
+                        Showing {filteredExplorerItems.length.toLocaleString()} of {dbData.length.toLocaleString()} entries
+                      </span>
+                    </div>
+
+                    {isAnyExplorerFilterActive && (
+                      <button className="reset-all-btn flex align-center" onClick={resetExplorerFilters}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                        </svg>
+                        Clear Explorer Filters
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -444,6 +521,7 @@ export default function RepoViewer({ initialSearchQuery }) {
                         <th>Object Name</th>
                         <th>Release State</th>
                         <th>Software Component</th>
+                        <th>Application Component</th>
                         <th>Recommended Successor</th>
                       </tr>
                     </thead>
@@ -461,7 +539,21 @@ export default function RepoViewer({ initialSearchQuery }) {
                                 {stateLabels[item.state] || item.state}
                               </span>
                             </td>
-                            <td><span className="comp-badge">{item.applicationComponent}</span></td>
+                            <td>
+                              <span className="softcomp-badge" style={{ 
+                                padding: '2px 8px', 
+                                background: 'rgba(59, 130, 246, 0.08)', 
+                                border: '1px solid rgba(59, 130, 246, 0.2)', 
+                                borderRadius: '4px',
+                                color: 'var(--b)',
+                                fontSize: '11px',
+                                fontFamily: 'var(--font-mono)',
+                                fontWeight: '600'
+                              }}>
+                                {item.softwareComponent || '-'}
+                              </span>
+                            </td>
+                            <td><span className="comp-badge">{item.applicationComponent || '-'}</span></td>
                              <td className="successor-column">
                               {item.successors && item.successors.length > 0 ? (
                                 item.successors.map((succ, sIdx) => (
@@ -480,7 +572,7 @@ export default function RepoViewer({ initialSearchQuery }) {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="5" className="table-empty">
+                          <td colSpan="6" className="table-empty">
                             No objects match your search criteria.
                           </td>
                         </tr>
@@ -741,16 +833,17 @@ export default function RepoViewer({ initialSearchQuery }) {
                       <table>
                         <thead>
                           <tr>
+                            <th>Type</th>
                             <th>Object Name</th>
-                            <th>Category</th>
-                            <th>Compliance Status</th>
-                            <th>Recommended Successor Object</th>
+                            <th>Release State</th>
+                            <th>Software Component</th>
+                            <th>Application Component</th>
+                            <th>Recommended Successor</th>
                           </tr>
                         </thead>
                         <tbody>
                           {simulationMetrics.detailsList.map((item, idx) => (
                             <tr key={`${item.name}-${idx}`} className={item.state !== item.simState ? 'simulated-row' : ''}>
-                              <td className="object-name font-mono">{item.name}</td>
                               <td>
                                 {item.found ? (
                                   <span className="type-badge">{item.type}</span>
@@ -758,12 +851,28 @@ export default function RepoViewer({ initialSearchQuery }) {
                                   <span className="type-badge custom">CUSTOM</span>
                                 )}
                               </td>
+                              <td className="object-name font-mono">{item.name}</td>
                               <td>
                                 <span className={`state-badge ${getAnalyzerStateClass(item.simState)}`}>
                                   {getAnalyzerStateLabel(item.simState)}
                                   {item.state !== item.simState && ' (Simulated)'}
                                 </span>
                               </td>
+                              <td>
+                                <span className="softcomp-badge" style={{ 
+                                  padding: '2px 8px', 
+                                  background: 'rgba(59, 130, 246, 0.08)', 
+                                  border: '1px solid rgba(59, 130, 246, 0.2)', 
+                                  borderRadius: '4px',
+                                  color: 'var(--b)',
+                                  fontSize: '11px',
+                                  fontFamily: 'var(--font-mono)',
+                                  fontWeight: '600'
+                                }}>
+                                  {item.softwareComponent || '-'}
+                                </span>
+                              </td>
+                              <td><span className="comp-badge">{item.component || '-'}</span></td>
                               <td className="successor-column">
                                 {item.successors && item.successors.length > 0 ? (
                                   item.successors.map((succ, sIdx) => (
