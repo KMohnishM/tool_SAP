@@ -443,11 +443,29 @@ export default function CopilotChat({ onNavigate, onSearchFinder, onSearchRepo }
     "Tell me about Application Jobs"
   ];
 
+  // Panel sits ABOVE and to the LEFT of the bubble using fixed coords
+  const PANEL_W = 380;
+  const PANEL_H = 540;
+  const BUBBLE_SIZE = 56;
+  const GAP = 10; // gap between bubble top and panel bottom
+
+  // Bubble's right edge in viewport coords
+  const bubbleRight = position.x + BUBBLE_SIZE;
+  // Panel left = bubble right - panel width (right-aligns panel to bubble)
+  let panelLeft = bubbleRight - PANEL_W;
+  // Panel bottom edge = bubble top - gap
+  let panelTop = position.y - PANEL_H - GAP;
+
+  // Clamp so panel never goes off-screen
+  panelLeft = Math.max(8, Math.min(panelLeft, window.innerWidth - PANEL_W - 8));
+  panelTop = Math.max(8, Math.min(panelTop, window.innerHeight - PANEL_H - 8));
+
   const panelStyle = {
-    bottom: '72px',
-    right: '0',
-    left: 'auto',
-    top: 'auto'
+    position: 'fixed',
+    left: `${panelLeft}px`,
+    top: `${panelTop}px`,
+    bottom: 'auto',
+    right: 'auto',
   };
 
   return createPortal(

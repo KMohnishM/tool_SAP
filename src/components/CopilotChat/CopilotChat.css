@@ -71,11 +71,7 @@
 
 /* Chat Panel Frame */
 .copilot-panel {
-  position: absolute;
-  bottom: 72px !important;
-  right: 0 !important;
-  left: auto !important;
-  top: auto !important;
+  /* position/coords are set via inline style (fixed, JS-computed) */
   width: 380px;
   height: 540px;
   border-radius: var(--radius-lg);
@@ -87,7 +83,8 @@
   opacity: 0;
   transform: translateY(20px) scale(0.95);
   pointer-events: none;
-  transition: all 0.3s cubic-bezier(0.1, 0.8, 0.2, 1);
+  transition: opacity 0.3s cubic-bezier(0.1, 0.8, 0.2, 1),
+              transform 0.3s cubic-bezier(0.1, 0.8, 0.2, 1);
 }
 
 .copilot-panel.open {
