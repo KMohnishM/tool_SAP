@@ -72,6 +72,10 @@
 /* Chat Panel Frame */
 .copilot-panel {
   position: absolute;
+  bottom: 72px !important;
+  right: 0 !important;
+  left: auto !important;
+  top: auto !important;
   width: 380px;
   height: 540px;
   border-radius: var(--radius-lg);

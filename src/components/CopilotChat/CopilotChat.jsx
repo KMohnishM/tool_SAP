@@ -49,38 +49,86 @@ const TERMINOLOGY_DICT = {
 
 export default function CopilotChat({ onNavigate, onSearchFinder, onSearchRepo }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    {
-      sender: 'bot',
-      text: "Hello! I am your **Clean Core Copilot**. I run 100% locally on your machine with zero cloud APIs.\n\nAsk me anything about Clean Core terminology (e.g. *'What is Level C?'*), search for an extensibility pattern (e.g. *'Application Jobs'*), or verify standard SAP objects (e.g. *'Is MARA cloud ready?'*).",
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      isRich: true
+  
+  // Load initial messages from localStorage or use default
+  const [messages, setMessages] = useState(() => {
+    const saved = localStorage.getItem('copilot_messages');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse saved copilot messages:", e);
+      }
     }
-  ]);
+    return [
+      {
+        sender: 'bot',
+        text: "Hello! I am your **Clean Core Copilot**. I run 100% locally on your machine with zero cloud APIs.\n\nAsk me anything about Clean Core terminology (e.g. *'What is Level C?'*), search for an extensibility pattern (e.g. *'Application Jobs'*), or verify standard SAP objects (e.g. *'Is MARA cloud ready?'*).",
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        isRich: true
+      }
+    ];
+  });
+
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [repoDb, setRepoDb] = useState(null);
   const [dbLoading, setDbLoading] = useState(false);
 
-  // Draggable positioning states
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  // Load initial position from localStorage or calculate default bottom-right
+  const [position, setPosition] = useState(() => {
+    const saved = localStorage.getItem('copilot_position');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          x: Math.min(parsed.x, window.innerWidth - 84),
+          y: Math.min(parsed.y, window.innerHeight - 84)
+        };
+      } catch (e) {}
+    }
+    return {
+      x: typeof window !== 'undefined' ? window.innerWidth - 84 : 0,
+      y: typeof window !== 'undefined' ? window.innerHeight - 84 : 0
+    };
+  });
+
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const elementStart = useRef({ x: 0, y: 0 });
   const hasDragged = useRef(false);
 
-  // Initialize position in bottom-right corner based on window size
+  // Save messages to localStorage on change
   useEffect(() => {
-    setPosition({
-      x: window.innerWidth - 84,
-      y: window.innerHeight - 84
-    });
+    localStorage.setItem('copilot_messages', JSON.stringify(messages));
+  }, [messages]);
 
+  // Save position to localStorage on change
+  useEffect(() => {
+    if (position.x !== 0 || position.y !== 0) {
+      localStorage.setItem('copilot_position', JSON.stringify(position));
+    }
+  }, [position]);
+
+  // Escape key listener to close chat panel
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  // Initialize position and listen to screen resize
+  useEffect(() => {
     const handleResize = () => {
-      setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - 84),
-        y: Math.min(prev.y, window.innerHeight - 84)
-      }));
+      setPosition(prev => {
+        const nextX = Math.min(prev.x, window.innerWidth - 84);
+        const nextY = Math.min(prev.y, window.innerHeight - 84);
+        return { x: nextX, y: nextY };
+      });
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -395,26 +443,12 @@ export default function CopilotChat({ onNavigate, onSearchFinder, onSearchRepo }
     "Tell me about Application Jobs"
   ];
 
-  // Calculate chat panel layout directions depending on bubble screen region
-  const isOnLeftSide = position.x < window.innerWidth / 2;
-  const isOnTopSide = position.y < window.innerHeight / 2;
-
-  const panelStyle = {};
-  if (isOnLeftSide) {
-    panelStyle.left = '0';
-    panelStyle.right = 'auto';
-  } else {
-    panelStyle.right = '0';
-    panelStyle.left = 'auto';
-  }
-
-  if (isOnTopSide) {
-    panelStyle.top = '72px';
-    panelStyle.bottom = 'auto';
-  } else {
-    panelStyle.bottom = '72px';
-    panelStyle.top = 'auto';
-  }
+  const panelStyle = {
+    bottom: '72px',
+    right: '0',
+    left: 'auto',
+    top: 'auto'
+  };
 
   return createPortal(
     <div 
